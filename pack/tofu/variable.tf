@@ -6,93 +6,139 @@ variable "blueprint_id" {
   type = string
 }
 
-variable "name" {
-  type    = string
-  default = "STIG protect re"
-  description = <<-EOF
-    {
-      "description": "Name of the RE protection configuration profile",
-      "display_name": "Profile Name",
-      "validators": [
-        {
-          "args": {
-            "min": 1
-          },
-          "error": "Name must be a non-empty string",
-          "type": "string_length"
-        }
-      ]
-    }
-  EOF
-}
-
-variable "configlet_scope" {
+variable "pack_name" {
   type = string
   description = <<-EOF
     {
-      "description": "Selects devices where configlet should be applied. Example: `hostname in [\"spine1\", \"spine2\"]`",
-      "display_name": "Configlet Scope",
+      "description": "Name of the content pack",
+      "display_name": "Pack Name"
+    }
+  EOF
+}
+
+variable "pack_description" {
+  type = string
+  description = <<-EOF
+    {
+      "description": "Description of the content pack",
+      "display_name": "Pack Description"
+    }
+  EOF
+}
+
+variable "allowed_protocols" {
+  type = set(string)
+  description = <<-EOF
+    {
+      "description": "Set of allowed network protocols",
+      "display_name": "Allowed Protocols",
       "validators": [
         {
+          "type": "set_item_string_validators",
           "args": {
-            "min": 1
+            "validators": [
+              {
+                "type": "string_enum",
+                "args": {
+                  "values": ["tcp", "udp", "icmp", "sctp"]
+                },
+                "error": "Protocol must be one of: tcp, udp, icmp, sctp"
+              }
+            ]
           },
-          "error": "Configlet scope must be a non-empty string expression",
-          "type": "string_length"
+          "error": "Invalid protocol in set"
         }
       ]
     }
   EOF
 }
 
-variable "management_nets" {
-  type = list(string)
+variable "device_roles" {
+  type = set(string)
   description = <<-EOF
     {
-      "description": "IP blocks requiring management access to the network devices, in CIDR notation",
-      "display_name": "Management Networks",
+      "description": "Set of device roles in the network",
+      "display_name": "Device Roles",
       "validators": [
         {
+          "type": "set_item_string_validators",
           "args": {
             "validators": [
               {
+                "type": "string_enum",
                 "args": {
-                  "pattern": "^((22[0-3]|2[0-1][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.)){3}(22[0-3]|2[0-1][0-9]|1[0-9]{2}|[1-9]?[0-9])/(3[0-2]|[12]?[0-9])$"
+                  "values": ["spine", "leaf", "border", "server", "access"]
                 },
-                "error": "Each management network must be a valid IPv4 unicast CIDR block",
-                "type": "string_regex"
+                "error": "Device role must be one of: spine, leaf, border, server, access"
               }
             ]
           },
-          "error": "Invalid management network",
-          "type": "list_item_string_validators"
+          "error": "Invalid device role"
         }
       ]
     }
   EOF
 }
 
-variable "radius_servers" {
+variable "log_level" {
+  type = string
+  description = <<-EOF
+    {
+      "description": "Logging level for the application",
+      "display_name": "Log Level",
+      "validators": [
+        {
+          "type": "string_enum",
+          "args": {
+            "values": ["debug", "info", "warning", "error", "critical"]
+          },
+          "error": "Log level must be one of: debug, info, warning, error, critical"
+        }
+      ]
+    }
+  EOF
+}
+
+variable "environment" {
+  type = string
+  description = <<-EOF
+    {
+      "description": "Deployment environment",
+      "display_name": "Environment",
+      "validators": [
+        {
+          "type": "string_enum",
+          "args": {
+            "values": ["development", "staging", "production"]
+          },
+          "error": "Environment must be one of: development, staging, production"
+        }
+      ]
+    }
+  EOF
+}
+
+variable "supported_features" {
   type = list(string)
   description = <<-EOF
     {
-      "description": "IP addresses of RADIUS servers used by the network devices",
-      "display_name": "RADIUS Servers",
+      "description": "List of supported features",
+      "display_name": "Supported Features",
       "validators": [
         {
+          "type": "set_item_string_validators",
           "args": {
             "validators": [
               {
+                "type": "string_enum",
                 "args": {
-                  "pattern": "^((22[0-3]|2[0-1][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.)){3}(22[0-3]|2[0-1][0-9]|1[0-9]{2}|[1-9]?[0-9])$"
+                  "values": ["bgp", "ospf", "evpn", "vxlan", "mpls"]
                 },
-                "error": "Each RADIUS server must be a valid IPv4 unicast address",
-                "type": "string_regex"
+                "error": "Feature must be one of: bgp, ospf, evpn, vxlan, mpls"
               }
             ]
           },
-          "error": "Invalid RADIUS server",
-          "type": "list_item_string_validators"
+          "error": "Invalid feature in list"
         }
       ]
     }
@@ -100,45 +146,42 @@ variable "radius_servers" {
 }
 
 variable "ntp_servers" {
-  type = list(string)
+  type = map(string)
+  default = {}
   description = <<-EOF
     {
-      "description": "IP addresses of NTP servers used by the network devices",
+      "description": "Map of NTP servers keyed by server IP address with SHA256 authentication strings as values",
       "display_name": "NTP Servers",
       "validators": [
         {
+          "type": "map_key_validators",
           "args": {
             "validators": [
               {
+                "type": "string_regex",
                 "args": {
                   "pattern": "^((22[0-3]|2[0-1][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.)){3}(22[0-3]|2[0-1][0-9]|1[0-9]{2}|[1-9]?[0-9])$"
                 },
-                "error": "Each NTP server must be a valid IPv4 unicast address",
-                "type": "string_regex"
+                "error": "Each map key must be a valid IPv4 unicast address"
               }
             ]
           },
-          "error": "Invalid NTP server",
-          "type": "list_item_string_validators"
-        }
-      ]
-    }
-  EOF
-}
-
-variable "apstra_ip" {
-  type = string
-  description = <<-EOF
-    {
-      "description": "IP address of the Apstra server used in the security policy",
-      "display_name": "Apstra Server IP",
-      "validators": [
+          "error": "Invalid map key"
+        },
         {
+          "type": "map_value_string_validators",
           "args": {
-            "pattern": "^((22[0-3]|2[0-1][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.)){3}(22[0-3]|2[0-1][0-9]|1[0-9]{2}|[1-9]?[0-9])$"
+            "validators": [
+              {
+                "type": "string_regex",
+                "args": {
+                  "pattern": "^[A-Fa-f0-9]{64}$"
+                },
+                "error": "SHA256 value must contain exactly 64 hexadecimal characters"
+              }
+            ]
           },
-          "error": "Apstra IP must be a valid IPv4 unicast address",
-          "type": "string_regex"
+          "error": "Invalid map value"
         }
       ]
     }
